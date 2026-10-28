@@ -37,6 +37,11 @@ export function validPacket(value: unknown): value is Packet {
   const p = value as Packet;
   const point = () => typeof p.x === 'number' && Number.isFinite(p.x) && p.x >= 0 && p.x <= 1 && typeof p.y === 'number' && Number.isFinite(p.y) && p.y >= 0 && p.y <= 1;
   switch (p.type) {
+    case 'rtc-offer': case 'rtc-answer': return typeof p.sdp === 'string' && p.sdp.startsWith('v=0') && p.sdp.length <= 65536;
+    case 'rtc-ice': {
+      const c = p.candidate as RTCIceCandidateInit | undefined;
+      return !!c && typeof c === 'object' && typeof c.candidate === 'string' && c.candidate.length <= 4096 && (c.sdpMid == null || typeof c.sdpMid === 'string' && c.sdpMid.length <= 64) && (c.sdpMLineIndex == null || Number.isInteger(c.sdpMLineIndex) && c.sdpMLineIndex >= 0 && c.sdpMLineIndex <= 16);
+    }
     case 'hello': return typeof p.token === 'string' && /^[a-f0-9]{64}$/.test(p.token) && typeof p.name === 'string' && p.name.length <= 60;
     case 'welcome': return typeof p.name === 'string' && p.name.length <= 60 && ['guide','camera'].includes(String(p.role)) && ['guided','video','voice'].includes(String(p.mode));
     case 'chat': return typeof p.text === 'string' && p.text.length > 0 && p.text.length <= 4000;

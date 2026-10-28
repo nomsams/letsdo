@@ -14,6 +14,7 @@ export function invitationFromLink(value: string, appUrl: string) {
 }
 
 export function friendlyProblem(reason: string) {
+  if (/older version|update Near/i.test(reason)) return { title: 'Refresh Near on both devices', detail: 'This call was started with an older version. Reload the app on both devices, then create a new call link.' };
   if (/browser.*support|secure context|https/i.test(reason)) return { title: 'Open Near in your browser', detail: 'Open this link in Safari, Chrome, or Edge using https. Camera calling may not work inside a messaging app’s built-in browser.' };
   if (/NotAllowed|permission|denied/i.test(reason)) return { title: 'Camera or microphone blocked', detail: 'Open this site’s permissions in your browser and allow the microphone and camera. Then try again.' };
   if (/NotFound|No microphone|No camera|device.*found/i.test(reason)) return { title: 'We couldn’t find your camera or microphone', detail: 'Check that your device has a microphone and camera. Close other apps that may be using them, then try again.' };

@@ -5,22 +5,21 @@ import { PatchTracker } from './tracker';
 import { mediaNeeds, invitationFromLink, friendlyProblem } from './experience';
 import { invitationQrSvg } from './qr';
 import { initializeTheme } from './theme';
-import './style.css';
-import './friendly.css';
-import './minimal.css';
-import './theme.css';
-import './utility.css';
+import { captureDevices, type CaptureFailure } from './media';
+import '@fontsource-variable/inter';
+import './app.css';
 
 const icons = {ArrowUpRight,ArrowRight,ArrowDownLeft,Plus,Video,Phone,MessageCircle,Settings,HelpCircle,Link,Copy,Check,X,Mic,MicOff,VideoOff,MonitorUp,ScreenShareOff,SwitchCamera,Maximize,Minimize,MousePointer2,Navigation,ScanLine,ZoomIn,ZoomOut,Hand,LockKeyhole,ShieldCheck,ChevronDown,Send,Smile,Paperclip,Signal,Users,Move,Camera,CircleHelp,Download,CheckCheck,Volume2,SlidersHorizontal,LogOut,Sun,Moon,Wrench};
 const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 const icon = (name: string, cls = '') => `<i data-lucide="${name}" class="${cls}"></i>`;
-const paintIcons = () => createIcons({icons,attrs:{'stroke-width':2}});
+const paintIcons = () => createIcons({icons,attrs:{'stroke-width':1.8,'aria-hidden':'true'}});
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const modeLabel = {guided:'Camera help',video:'Video call',voice:'Voice call'};
 const state = { role:'guide' as Role, mode:'guided' as Mode, tool:'direction', demo:true, connected:false, mic:true, camera:true, zoom:1, tilt:false, pointerAllowed:false, remotePointerAllowed:false, localSharing:false, remoteSharing:false, name:'You', otherName:'Your person', invite:'', started:0, unread:0 };
 let session: CallSession | undefined;
 let localStream: MediaStream | undefined, remoteStream: MediaStream | undefined;
-let cameraTrack: MediaStreamTrack | undefined, placeholderTrack: MediaStreamTrack | undefined, displayStream: MediaStream | undefined;
+let cameraTrack: MediaStreamTrack | undefined, displayStream: MediaStream | undefined;
+let remoteCameraOn: boolean | undefined;
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
 let sensorTimer: ReturnType<typeof setTimeout> | undefined;
 let lastGuidance = 0, lastPointerSend = 0, pendingGuestName = '';
@@ -36,20 +35,21 @@ let permissionPending = false, permissionBusy = false;
 let qrSvg = '';
 if(invitation) history.replaceState(null,'',location.pathname+location.search); // Keep invitation secret out of future screenshots/history entries.
 
+const brandMark = `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="currentColor"/><path d="M10 22V10h3.5L22 22V10" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 $('#app').innerHTML = `
 <section class="home-screen simple-home" id="home-screen" aria-label="Welcome to Near">
- <header class="home-header"><a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${icon('wrench')}</span>near<span class="brand-dot">.</span></a><div class="theme-controls"><button class="icon-button theme-toggle" data-action="theme" aria-label="Dark mode" aria-pressed="false" title="Switch to dark mode">${icon('moon')}</button><button class="icon-button" data-action="help" aria-label="Help">${icon('help-circle')}</button></div></header>
- <div class="home-content"><div class="start-symbol">${icon('wrench')}</div><div class="home-intro"><h1>Show the problem.<br>Get it fixed.</h1><p>Live video help for repairs and troubleshooting.</p></div>
+ <header class="home-header"><a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${brandMark}</span>near<span class="brand-dot">.</span></a><div class="theme-controls"><button class="icon-button theme-toggle" data-action="theme" aria-label="Dark mode" aria-pressed="false" title="Switch to dark mode">${icon('moon')}</button><button class="icon-button" data-action="help" aria-label="Help">${icon('help-circle')}</button></div></header>
+ <div class="home-content"><div class="home-story"><div class="section-label">REMOTE ASSISTANCE</div><div class="home-intro"><h1>Show the problem.<br><span>Get it fixed.</span></h1><p>Point your camera at the issue. Get clear guidance from someone who can help.</p></div><div class="story-note">${icon('move')} Guide the camera. Find the fix.</div></div><div class="connection-panel"><div class="panel-heading"><h2>Connect</h2><span>${icon('lock-keyhole')} Private call</span></div>
  <div class="call-result" id="call-result" role="status" hidden><span>${icon('phone')}</span><div><h2 id="result-title"></h2><p id="result-detail"></p></div></div>
- <div class="home-call-actions"><button class="button primary" data-action="quick-start">${icon('phone')} Start call</button><button class="button" data-action="join-link">${icon('link')} Join a call</button></div>
+ <div class="home-call-actions"><button class="button primary start-call-button" data-action="quick-start">${icon('phone')}<span><strong>Start call</strong><small>Create an invitation link</small></span>${icon('arrow-up-right')}</button><button class="button" data-action="join-link">${icon('link')} Join a call</button></div>
  <details class="simple-options"><summary>Call options ${icon('chevron-down')}</summary><div class="simple-options-content"><label class="field-label" for="home-mode">Call type</label><select id="home-mode" class="text-input"><option value="guided">Camera help — point the way</option><option value="video">Video call — both cameras</option><option value="voice">Voice call — just talk</option></select><label class="field-label" for="home-role">In camera help, I want to…</label><select id="home-role" class="text-input"><option value="camera">Show my camera and get help</option><option value="guide">See their camera and help them</option></select></div></details>
- <div class="home-reassurance">${icon('lock-keyhole')} Private calls. No account needed.</div>
- </div><footer class="home-footer"><button class="text-button" data-action="privacy">Privacy</button><button class="text-button" data-action="settings">Settings</button></footer>
+ <div class="home-reassurance">${icon('shield-check')} Encrypted. No account needed.</div>
+ </div></div><footer class="home-footer"><button class="text-button" data-action="privacy">Privacy</button><button class="text-button" data-action="settings">Settings</button></footer>
 </section>
-<section class="lobby-screen" id="lobby-screen" hidden aria-label="Invite someone to your call"><header class="lobby-header"><a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${icon('wrench')}</span>near<span class="brand-dot">.</span></a><div class="theme-controls"><button class="icon-button theme-toggle" data-action="theme" aria-label="Dark mode" aria-pressed="false" title="Switch to dark mode">${icon('moon')}</button><button class="text-button" data-action="end">Cancel call</button></div></header><div class="lobby-content"><span class="lobby-symbol">${icon('users')}</span><h1 id="lobby-title">Getting your call ready…</h1><p id="lobby-detail">Your camera and microphone are off.</p><div id="invitation-card" hidden><label class="field-label" for="invite-link">Your call link</label><div class="copy-field"><input id="invite-link" readonly aria-label="Your call link"/></div><div class="invite-actions"><button class="button primary" data-action="share-invite">${icon('send')} Share link</button><button class="button" data-action="copy-invite">${icon('copy')} Copy link</button></div><button class="qr-toggle text-button" id="qr-toggle" data-action="qr" aria-expanded="false" aria-controls="qr-panel">${icon('scan-line')} Show QR code</button><div class="qr-panel" id="qr-panel" hidden><div class="qr-image" id="qr-image" role="img" aria-label="QR code for joining this call"></div><p>Scan with your phone’s camera to join.</p><button class="text-button" id="save-qr" data-action="save-qr" disabled>${icon('download')} Save QR code</button></div><p class="share-success" id="share-success" role="status" hidden></p><div class="lobby-waiting"><span class="pulse-dot"></span> Waiting for the other person</div></div><p class="lobby-note">Keep this page open.</p></div></section>
+<section class="lobby-screen" id="lobby-screen" hidden aria-label="Invite someone to your call"><header class="lobby-header"><a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${brandMark}</span>near<span class="brand-dot">.</span></a><div class="theme-controls"><button class="icon-button theme-toggle" data-action="theme" aria-label="Dark mode" aria-pressed="false" title="Switch to dark mode">${icon('moon')}</button><button class="text-button" data-action="end">Cancel call</button></div></header><div class="lobby-content"><div class="section-label">PRIVATE CALL</div><h1 id="lobby-title">Getting your call ready…</h1><p id="lobby-detail">Your camera and microphone are off.</p><div id="invitation-card" hidden><label class="field-label" for="invite-link">Your call link</label><div class="copy-field"><input id="invite-link" readonly aria-label="Your call link"/></div><div class="invite-actions"><button class="button primary" data-action="share-invite">${icon('send')} Share link</button><button class="button" data-action="copy-invite">${icon('copy')} Copy link</button></div><button class="qr-toggle text-button" id="qr-toggle" data-action="qr" aria-expanded="false" aria-controls="qr-panel">${icon('scan-line')} Show QR code</button><div class="qr-panel" id="qr-panel" hidden><div class="qr-image" id="qr-image" role="img" aria-label="QR code for joining this call"></div><p>Scan with your phone’s camera to join.</p><button class="text-button" id="save-qr" data-action="save-qr" disabled>${icon('download')} Save QR code</button></div><p class="share-success" id="share-success" role="status" hidden></p><div class="lobby-waiting"><span class="pulse-dot"></span> Waiting for the other person</div></div><p class="lobby-note">Keep this page open.</p></div></section>
 <div class="app-shell">
  <aside class="sidebar">
-  <a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${icon('wrench')}</span>near<span class="brand-dot">.</span></a>
+  <a class="brand" href="${location.pathname}" aria-label="Near home"><span class="brand-mark">${brandMark}</span>near<span class="brand-dot">.</span></a>
   <div class="workspace-label">A LITTLE CLOSER, FROM ANYWHERE</div>
   <button class="new-call" data-action="new">${icon('plus')} New call <span>↗</span></button>
   <nav aria-label="Main navigation"><button class="nav-item selected" data-action="calls">${icon('video')} Calls <span class="nav-dot"></span></button><button class="nav-item" data-action="chat">${icon('message-circle')} Conversation <span id="unread" hidden>0</span></button></nav>
@@ -61,6 +61,7 @@ $('#app').innerHTML = `
  <main>
   <header class="page-header"><div class="call-header-left"><button class="back-home button" data-action="home">${icon('arrow-down-left')} Home</button><div><h1 id="workspace-title">Try camera guidance</h1><p id="workspace-subtitle">A practice space. Your camera and microphone are off.</p></div></div><div class="header-actions"><button class="icon-button theme-toggle" data-action="theme" aria-label="Dark mode" aria-pressed="false" title="Switch to dark mode">${icon('moon')}</button><button class="button primary header-invite" data-action="new">${icon('plus')} Start a real call</button><button class="icon-button" data-action="settings" aria-label="Call settings" title="Call settings">${icon('settings')}</button></div></header>
   <div class="next-step" id="next-step" role="status" aria-live="polite"><span class="next-step-icon">${icon('navigation')}</span><div><strong id="next-title">Try dragging on the picture</strong><p id="next-detail">An arrow shows the direction. Let go to ask the other person to hold still.</p></div><button class="button" id="next-action" data-action="new">Start a real call ${icon('arrow-right')}</button></div>
+  <div class="device-notice" id="device-notice" role="status" hidden><div><strong>Connected with devices off</strong><p id="device-detail"></p></div><button class="icon-button" data-action="dismiss-device-notice" aria-label="Dismiss device message">${icon('x')}</button></div>
   <div class="session-bar"><div class="mode-tabs" role="tablist" aria-label="Call mode"><button role="tab" aria-selected="true" data-mode="guided">${icon('navigation')} Guided camera</button><button role="tab" aria-selected="false" data-mode="video">${icon('video')} Video</button><button role="tab" aria-selected="false" data-mode="voice">${icon('phone')} Voice</button></div><button class="text-button how-button" data-action="help">${icon('circle-help')} How it works</button></div>
   <div class="call-layout">
    <section class="call-column" aria-label="Call workspace">
@@ -133,9 +134,9 @@ function renderState() {
  $('#role-button').hidden=!state.demo;$('#role-button').innerHTML=`Try the ${state.role==='guide'?'phone':'helper'} view ${icon('arrow-right')}`;
  $('#demo-guide').hidden=!state.demo||state.mode!=='guided';
  if(state.demo) {$('#call-title').textContent=state.mode==='guided'?'Try pointing the way':state.mode==='video'?'Try a video call':'Try a voice call';$('#call-badge').textContent='PRACTICE';$('#camera-label').innerHTML=`${icon('camera')} Practice picture <span>·</span> ${state.role==='guide'?'Try it out':'Phone view'}`;}
- const micOn=!state.demo&&!!localStream&&state.mic,cameraOn=!state.demo&&!!cameraTrack&&state.camera;
- $('#mic-btn').classList.toggle('disabled-control',!micOn);$('#mic-btn').setAttribute('aria-label',micOn?'Mute microphone':'Unmute microphone');$('#mic-btn').setAttribute('aria-pressed',String(micOn));$<HTMLButtonElement>('#mic-btn').disabled=state.demo||!localStream;setButtonIcon('#mic-btn',micOn?'mic':'mic-off',micOn?'Mic on':'Mic off');
- $('#camera-btn').hidden=!state.demo&&!mediaNeeds(state.mode,state.role).camera;$('#camera-btn').classList.toggle('disabled-control',!cameraOn);$('#camera-btn').setAttribute('aria-label',cameraOn?'Turn camera off':'Turn camera on');$('#camera-btn').setAttribute('aria-pressed',String(cameraOn));$<HTMLButtonElement>('#camera-btn').disabled=state.demo||!localStream;setButtonIcon('#camera-btn',cameraOn?'video':'video-off',cameraOn?'Camera on':'Camera off');
+ const micOn=!state.demo&&!!localStream?.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled)&&state.mic,cameraOn=!state.demo&&!!cameraTrack&&state.camera;
+ $('#mic-btn').classList.toggle('disabled-control',!micOn);$('#mic-btn').setAttribute('aria-label',micOn?'Mute microphone':'Turn on microphone');$('#mic-btn').setAttribute('aria-pressed',String(micOn));$<HTMLButtonElement>('#mic-btn').disabled=state.demo||!localStream||permissionBusy;setButtonIcon('#mic-btn',micOn?'mic':'mic-off',micOn?'Mic on':'Mic off');
+ $('#camera-btn').hidden=!state.demo&&!mediaNeeds(state.mode,state.role).camera;$('#camera-btn').classList.toggle('disabled-control',!cameraOn);$('#camera-btn').setAttribute('aria-label',cameraOn?'Turn camera off':'Turn camera on');$('#camera-btn').setAttribute('aria-pressed',String(cameraOn));$<HTMLButtonElement>('#camera-btn').disabled=state.demo||!localStream||permissionBusy;setButtonIcon('#camera-btn',cameraOn?'video':'video-off',cameraOn?'Camera on':'Camera off');
  const safety=state.demo?'Practice mode — your camera and microphone are off.':!localStream?'Your camera and microphone are off.':`${micOn?'Microphone on':'Microphone off'} · ${cameraOn?'Camera on':'Camera off'}${state.localSharing?' · Sharing your screen':''}`;
  $('#call-safety-status').innerHTML=`${icon('shield-check')} ${esc(safety)}`;
  $('#workspace-title').textContent=state.demo?'Try camera guidance':state.connected?'Your call':'Let’s get you connected';$('#workspace-subtitle').textContent=state.demo?'A practice space. Your camera and microphone are off.':state.connected?`With ${state.otherName}`:'One step at a time. We’ll show you what to do.';
@@ -148,12 +149,12 @@ function renderMedia() {
  const voice=state.mode==='voice'&&!state.localSharing&&!state.remoteSharing;
  const localMain=state.localSharing||(!state.remoteSharing&&state.mode==='guided'&&state.role==='camera');
  const stream=localMain?(state.localSharing?displayStream:localStream):remoteStream;
- const visibleVideo=!!stream?.getVideoTracks().some(t=>t.readyState==='live') && !voice && (localMain?state.camera||state.localSharing:true);
+ const visibleVideo=!!stream?.getVideoTracks().some(t=>t.readyState==='live'&&!t.muted) && !voice && (localMain?state.camera||state.localSharing:state.remoteSharing||remoteCameraOn!==false);
  $('#empty-camera').hidden=!!remoteStream||!!localStream;$('#voice-view').hidden=!voice&& (state.demo||visibleVideo||!localStream);mainVideo.hidden=state.demo||!visibleVideo||voice;
  if(mainVideo.srcObject!==stream)mainVideo.srcObject=stream||null;
- mainVideo.muted=localMain; // Main video supplies remote audio except when it shows the local camera.
+ mainVideo.muted=true; // One dedicated audio element prevents duplicated or interrupted remote sound.
  const audio=$<HTMLAudioElement>('#remote-audio') || Object.assign(document.createElement('audio'),{id:'remote-audio',autoplay:true});
- if(!audio.parentElement)document.body.append(audio);audio.srcObject=remoteStream||null;audio.muted=!localMain&&!voice&&!mainVideo.hidden;
+ if(!audio.parentElement)document.body.append(audio);if(audio.srcObject!==remoteStream)audio.srcObject=remoteStream||null;audio.muted=false;
  if(remoteStream)void audio.play().catch(()=>$('#sound-notice').hidden=false);
  if(!mainVideo.hidden)void mainVideo.play().catch(()=>{if(!mainVideo.muted)$('#sound-notice').hidden=false;});
  const showLocal=!state.demo&&!!cameraTrack&&state.camera&&!localMain&&state.mode==='video';$('#local-preview').hidden=!showLocal;
@@ -205,7 +206,7 @@ function newCallDialog(join=false) {
  $('#join-call').addEventListener('click',()=>{state.name='Someone';dialog.close();startSession('guide','guided',true);});
 }
 function joinLinkDialog(){showDialog(`<div class="dialog-symbol">${icon('link')}</div><h2>Have an invitation?</h2><p>You can tap the link in your messages, or paste it here.</p><form id="join-link-form"><label class="field-label" for="join-url">Invitation link</label><input class="text-input" type="url" id="join-url" placeholder="Paste your Near invitation here" required aria-describedby="join-error"/><p id="join-error" class="field-error" role="alert" hidden></p><button type="submit" class="button primary full-width">Open invitation ${icon('arrow-right')}</button></form>`);$('#join-link-form').addEventListener('submit',e=>{e.preventDefault();const parsed=invitationFromLink($<HTMLInputElement>('#join-url').value,location.href);if(!parsed){$('#join-error').hidden=false;$('#join-error').textContent='That doesn’t look like a complete Near invitation. Copy the whole link from your message and try again.';return;}invitation=parsed;newCallDialog(true);});}
-function showMediaPermission(){if(!session)return;showWorkspace();permissionPending=true;updateNextStep();const needs=mediaNeeds(state.mode,state.role);showDialog(`<div class="dialog-symbol">${icon(needs.camera?'camera':'mic')}</div><h2>${needs.title}</h2><p>${needs.description}</p><button class="button primary full-width" id="allow-media">${icon(needs.camera?'camera':'mic')} ${needs.camera?'Turn on camera & microphone':'Turn on microphone'}</button><button class="text-button permission-cancel" id="permission-cancel">Not now</button>`);$('#allow-media').addEventListener('click',()=>{dialog.close();void prepareMedia();});$('#permission-cancel').addEventListener('click',()=>{dialog.close();endSession('Call ended. Your camera and microphone are off.');});}
+function showMediaPermission(){if(!session)return;showWorkspace();permissionPending=true;updateNextStep();const needs=mediaNeeds(state.mode,state.role);showDialog(`<div class="dialog-symbol">${icon(needs.camera?'camera':'mic')}</div><h2>Choose what to share</h2><p>You can join with either device off and turn it on later.</p><div class="permission-choices"><label><input id="want-mic" type="checkbox" checked/><span><strong>Microphone</strong><small>Let the other person hear you.</small></span>${icon('mic')}</label>${needs.camera?`<label><input id="want-camera" type="checkbox" checked/><span><strong>Camera</strong><small>Show what your camera sees.</small></span>${icon('video')}</label>`:''}</div><button class="button primary full-width" id="allow-media">${icon('phone')} Join call</button><button class="text-button permission-cancel" id="permission-cancel">Join with mic and camera off</button>`);$('#allow-media').addEventListener('click',()=>{const audio=$<HTMLInputElement>('#want-mic').checked,video=!!document.querySelector<HTMLInputElement>('#want-camera')?.checked;dialog.close();void prepareMedia({audio,video});});$('#permission-cancel').addEventListener('click',()=>{dialog.close();void prepareMedia({audio:false,video:false});});}
 function getConfig(): Pick<SessionConfig,'iceServers'|'signaling'> {
  try {const saved=JSON.parse(sessionStorage.getItem('near-network')||'{}');const iceServers:RTCIceServer[]=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}];if(saved.turn)iceServers.push({urls:saved.turn,username:saved.username,credential:saved.credential});return{iceServers,...(saved.host?{signaling:{host:saved.host,port:Number(saved.port)||443,path:saved.path||'/',secure:true}}:{})};}catch{return{iceServers:[{urls:'stun:stun.l.google.com:19302'}]};}
 }
@@ -217,7 +218,7 @@ function startSession(role:Role,mode:Mode,join:boolean) {
   request:name=>{pendingGuestName=name;state.otherName=name;showDialog(`<div class="dialog-symbol">${icon('phone')}</div><h2>${esc(name)} is calling.</h2><p>${mediaNeeds(state.mode,state.role).camera?'You’ll be able to show your camera and talk.':'You’ll be able to hear each other. Your camera stays off.'} Answer to continue.</p><div class="dialog-actions"><button class="button" id="decline-call">Not now</button><button class="button primary" id="accept-call">${icon('phone')} Answer</button></div>`);$('#accept-call').addEventListener('click',()=>{pendingGuestName='';session?.accept();showMediaPermission();});$('#decline-call').addEventListener('click',()=>{pendingGuestName='';session?.decline();dialog.close();endSession('Call declined.');});},
   joined:(name,r,m)=>{state.otherName=name;state.role=r;state.mode=m;renderState();$('#call-title').textContent=`${modeLabel[m]} with ${name}`;setStatus('Waiting for your person to accept');},
   packet:handlePacket,
-  stream:stream=>{remoteStream=stream;state.connected=true;state.started=Date.now();$('#call-badge').textContent='CONNECTED';$('#call-badge').classList.add('connected-badge');$('#call-title').textContent=`${modeLabel[state.mode]} with ${state.otherName}`;$('#stage-status').innerHTML=`<span class="little-dot"></span> Connected · encrypted`;$('#stage-encryption').innerHTML=`${icon('lock-keyhole')} Encrypted call`;$('#sidebar-session').textContent=state.otherName;renderState();if(dialog.open)dialog.close();toast('You’re connected. Say hello!');},
+  stream:stream=>{const first=!state.connected;remoteStream=stream;state.connected=true;if(first){state.started=Date.now();$('#call-badge').textContent='CONNECTED';$('#call-title').textContent=`${modeLabel[state.mode]} with ${state.otherName}`;$('#sidebar-session').textContent=state.otherName;if(dialog.open)dialog.close();toast('Call connected.');}renderState();},
   ended:reason=>endSession(reason)
  },join?invitation!:undefined);
  if(join)setStatus('Joining private call…');
@@ -231,27 +232,17 @@ async function shareInvite(){if(!state.invite)return;const invite=state.invite;t
 async function copyInvite(){if(!state.invite)return;const invite=state.invite;try{await navigator.clipboard.writeText(invite);if(state.invite===invite)shareFeedback('Copied. Paste the link into a message.');}catch{if(state.invite===invite){$<HTMLInputElement>('#invite-link').focus();$<HTMLInputElement>('#invite-link').select();shareFeedback('Copy the selected link and send it in a message.');}}}
 async function toggleQr(){if(!state.invite)return;const panel=$('#qr-panel'),button=$('#qr-toggle');panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.innerHTML=`${icon('scan-line')} ${panel.hidden?'Show':'Hide'} QR code`;paintIcons();if(panel.hidden||qrSvg)return;const invite=state.invite;$('#qr-image').textContent='Creating QR code…';$<HTMLButtonElement>('#save-qr').disabled=true;try{const svg=await invitationQrSvg(invite);if(state.invite!==invite)return;qrSvg=svg;$('#qr-image').innerHTML=svg;$<HTMLButtonElement>('#save-qr').disabled=false;}catch{if(state.invite===invite){$('#qr-image').textContent='Couldn’t create the QR code. Copy the link instead.';}}}
 function saveQr(){if(!qrSvg||!state.invite)return;const url=URL.createObjectURL(new Blob([qrSvg],{type:'image/svg+xml'}));const a=document.createElement('a');a.href=url;a.download='near-call-qr.svg';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function blankVideo() {
- const c=document.createElement('canvas');c.width=16;c.height=16;const ctx=c.getContext('2d')!;ctx.fillStyle='#202735';ctx.fillRect(0,0,16,16);const t=c.captureStream(1).getVideoTracks()[0];placeholderTrack=t;return t;
+function cameraConstraints():MediaTrackConstraints{return{facingMode:{ideal:state.mode==='guided'?'environment':'user'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}};}
+function deviceNotice(failures:CaptureFailure[]){if(!failures.length)return;const names=failures.map(f=>f.kind==='audio'?'Microphone':'Camera').join(' and ');$('#device-notice strong').textContent=`${names} off`;$('#device-detail').textContent='You can stay in the call and hear the other person. Use the device buttons to try again. If access was blocked, allow it in your browser’s site permissions.';$('#device-notice').hidden=false;}
+async function prepareMedia(request={audio:true,video:mediaNeeds(state.mode,state.role).camera}) {
+ const activeSession=session;if(!activeSession||permissionBusy||localStream)return;permissionPending=false;permissionBusy=true;
+ const stream=new MediaStream();localStream=stream;renderState();setStatus('Getting your devices ready…');
+ const failures=await captureDevices(stream,{audio:request.audio,video:request.video?cameraConstraints():false},()=>session===activeSession);
+ if(session!==activeSession){stream.getTracks().forEach(t=>t.stop());return;}
+ cameraTrack=stream.getVideoTracks()[0];state.camera=!!cameraTrack;state.mic=stream.getAudioTracks().length>0;permissionBusy=false;
+ activeSession.setStream(stream);activeSession.send({type:'camera-state',enabled:state.camera});setStatus('Connecting your call…');renderState();deviceNotice(failures);
 }
-async function prepareMedia() {
- const activeSession=session;if(!activeSession||permissionBusy||localStream)return;permissionPending=false;permissionBusy=true;renderState();
- if(!navigator.mediaDevices?.getUserMedia){endSession('This browser does not support camera calling in this secure context. Open Near using https.');return;}
- setStatus('Waiting for microphone permission…');
- try {
-  const wantsVideo=state.mode==='video'||state.mode==='guided'&&state.role==='camera';
-  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:wantsVideo?{facingMode:{ideal:state.mode==='guided'?'environment':'user'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}}:false});
-  if(session!==activeSession){stream.getTracks().forEach(t=>t.stop());return;}
-  localStream=stream;cameraTrack=stream.getVideoTracks()[0];state.camera=wantsVideo;state.mic=true;
-  if(!cameraTrack)stream.addTrack(blankVideo());
-  permissionBusy=false;activeSession.setStream(stream);setStatus('Connecting to your person…');renderState();
-  if(state.role==='camera'&&state.mode==='guided')toast('Share what you need help with. Your guide can now point the way.');
- } catch(e) {
-  const name=(e as Error).name;const why=name==='NotAllowedError'?'Camera or microphone permission was denied. Allow access in your browser, then start a new call.':name==='NotFoundError'?'No microphone or camera was found. Connect a device and try again.':`Could not start media: ${(e as Error).message}`;
-  endSession(why);
- }
-}
-function resetMedia(){localStream?.getTracks().forEach(t=>t.stop());cameraTrack?.stop();placeholderTrack?.stop();displayStream?.getTracks().forEach(t=>t.stop());localStream=undefined;remoteStream=undefined;cameraTrack=undefined;placeholderTrack=undefined;displayStream=undefined;mainVideo.srcObject=null;mainVideo.style.visibility='visible';localVideo.srcObject=null;const a=$<HTMLAudioElement>('#remote-audio');if(a)a.srcObject=null;state.localSharing=false;state.remoteSharing=false;state.pointerAllowed=false;state.remotePointerAllowed=false;pendingGuestName='';}
+function resetMedia(){localStream?.getTracks().forEach(t=>t.stop());cameraTrack?.stop();displayStream?.getTracks().forEach(t=>t.stop());localStream=undefined;remoteStream=undefined;cameraTrack=undefined;displayStream=undefined;remoteCameraOn=undefined;mainVideo.srcObject=null;mainVideo.style.visibility='visible';localVideo.srcObject=null;$('#device-notice').hidden=true;const a=$<HTMLAudioElement>('#remote-audio');if(a)a.srcObject=null;state.localSharing=false;state.remoteSharing=false;state.pointerAllowed=false;state.remotePointerAllowed=false;pendingGuestName='';}
 function endSession(reason='Call ended. Your camera and microphone are off.') {
  closeChat();$('#sound-notice').hidden=true;
  const old=session;session=undefined;old?.close();resetMedia();permissionPending=false;permissionBusy=false;clearGuidance(false);state.connected=false;state.demo=true;state.role='guide';state.invite='';state.started=0;state.camera=true;state.mic=true;state.zoom=1;outgoing.clear();incoming.forEach(f=>{if(f.assembly)f.row.querySelector('.file-status')!.textContent='Transfer interrupted';});incoming.clear();if(dialog.open)dialog.close();renderState();setStatus('Ready when you are');$('#timer').textContent='A browser is all you need';$('#sidebar-session').textContent='Try a guided call';$('#sidebar-status').textContent='Interactive preview';$('#call-badge').classList.remove('connected-badge');$('#stage-status').innerHTML='<span class="little-dot"></span> Practice picture · no call connected';$('#stage-encryption').innerHTML=`${icon('lock-keyhole')} Private by design`;showHome(reason);
@@ -261,8 +252,11 @@ async function toggleCamera(){
  if(!state.connected){toast('Connect to a call first.');return;}
  if(state.mode==='voice'||state.mode==='guided'&&state.role==='guide'){toast('This call uses your microphone only. Choose Video when starting a new call to share your camera.');return;}
  if(state.localSharing){toast('Stop screen sharing to change your camera.');return;}
- state.camera=!state.camera;if(cameraTrack)cameraTrack.enabled=state.camera;packet({type:'camera-state',enabled:state.camera});renderState();
+ if(!cameraTrack||cameraTrack.readyState!=='live'){await enableDevice('video');return;}
+ state.camera=!state.camera;cameraTrack.enabled=state.camera;packet({type:'camera-state',enabled:state.camera});renderState();
 }
+async function toggleMicrophone(){if(!session||!localStream||permissionBusy)return;const track=localStream.getAudioTracks().find(t=>t.readyState==='live');if(!track){await enableDevice('audio');return;}state.mic=!state.mic;track.enabled=state.mic;renderState();}
+async function enableDevice(kind:'audio'|'video'){const activeSession=session;if(!activeSession||permissionBusy)return;permissionBusy=true;renderState();const added=new MediaStream();const failures=await captureDevices(added,{audio:kind==='audio',video:kind==='video'?cameraConstraints():false},()=>session===activeSession);if(session!==activeSession){added.getTracks().forEach(t=>t.stop());return;}try{const track=added.getTracks()[0];if(track){if(kind==='audio'){await activeSession.replaceAudio(track);state.mic=true;}else{await activeSession.replaceVideo(track);cameraTrack=track;state.camera=true;packet({type:'camera-state',enabled:true});}$('#device-notice').hidden=true;}else deviceNotice(failures);}catch{added.getTracks().forEach(t=>t.stop());deviceNotice([{kind,name:'NotReadableError'}]);}finally{permissionBusy=false;renderState();}}
 async function flipCamera(){
  if(state.demo){toast('In a call, this switches between your phone’s front and rear cameras.');return;}
  if(!cameraTrack||state.localSharing||!state.connected){toast('Turn on your camera first.');return;}
@@ -275,7 +269,7 @@ async function screenShare(){
  if(!navigator.mediaDevices.getDisplayMedia){toast('Screen sharing isn’t available in this browser. Try a desktop browser.');return;}
  try{const activeSession=session;const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});if(session!==activeSession){stream.getTracks().forEach(t=>t.stop());return;}displayStream=stream;await session!.replaceVideo(stream.getVideoTracks()[0]);state.localSharing=true;state.zoom=1;clearGuidance();packet({type:'screen',enabled:true});stream.getVideoTracks()[0].onended=()=>void stopSharing();renderState();}catch(e){if((e as Error).name!=='NotAllowedError')toast('Screen sharing could not start. Try a desktop browser.');}
 }
-async function stopSharing(){if(!state.localSharing)return;state.localSharing=false;try{await session?.replaceVideo(cameraTrack||placeholderTrack||blankVideo());}catch{toast('Could not restore the camera. Please restart the call.');}displayStream?.getTracks().forEach(t=>{t.onended=null;t.stop();});displayStream=undefined;state.pointerAllowed=false;state.remotePointerAllowed=false;packet({type:'screen',enabled:false});packet({type:'pointer-permission',enabled:false});clearGuidance();renderState();}
+async function stopSharing(){if(!state.localSharing)return;state.localSharing=false;try{await session?.replaceVideo(cameraTrack||null);}catch{toast('Could not restore the camera. Please restart the call.');}displayStream?.getTracks().forEach(t=>{t.onended=null;t.stop();});displayStream=undefined;state.pointerAllowed=false;state.remotePointerAllowed=false;packet({type:'screen',enabled:false});packet({type:'pointer-permission',enabled:false});clearGuidance();renderState();}
 
 function handlePacket(p:Packet){
  switch(p.type){
@@ -288,7 +282,7 @@ function handlePacket(p:Packet){
  case 'target':if(state.role==='camera')target({x:p.x as number,y:p.y as number});break;
  case 'clear':clearGuidance(false);break;
  case 'screen':state.remoteSharing=p.enabled as boolean;state.zoom=1;state.remotePointerAllowed=false;state.pointerAllowed=false;if(p.enabled&&state.localSharing&&session&&session.peer.id>(session.data?.peer||'')){void stopSharing();toast('Your person also shared. Showing their screen first.');}clearGuidance(false);renderState();break;
- case 'camera-state':if(!state.remoteSharing){mainVideo.style.visibility=p.enabled?'visible':'hidden';if(!p.enabled)instruction('Your person turned their camera off.','video-off',4000);}break;
+ case 'camera-state':remoteCameraOn=p.enabled as boolean;renderMedia();break;
  case 'pointer-request':if(state.localSharing){showDialog(`<div class="dialog-symbol">${icon('mouse-pointer-2')}</div><h2>Show a shared pointer?</h2><p>${esc(state.otherName)} would like to point at your shared screen. This displays a cursor inside Near. It cannot click or control your device.</p><div class="dialog-actions"><button class="button" id="deny-pointer">Not now</button><button class="button primary" id="allow-pointer">Allow pointer</button></div>`);$('#allow-pointer').addEventListener('click',()=>{state.pointerAllowed=true;packet({type:'pointer-permission',enabled:true});dialog.close();toast('Shared pointer allowed. Use Pointer to revoke.');});$('#deny-pointer').addEventListener('click',()=>{packet({type:'pointer-permission',enabled:false});dialog.close();});}else packet({type:'pointer-permission',enabled:false});break;
  case 'pointer-permission':state.remotePointerAllowed=p.enabled as boolean;if(p.enabled){setTool('pointer');toast('Shared pointer allowed. Drag on the video to point.');}else{$('#remote-pointer').hidden=true;if(state.tool==='pointer')setTool('direction');toast('Shared pointer isn’t enabled.');}break;
  case 'pointer':if(state.localSharing&&state.pointerAllowed){place($('#remote-pointer'),{x:p.x as number,y:p.y as number});$('#remote-pointer').hidden=false;}break;
@@ -345,7 +339,7 @@ const actions:Record<string,()=>void>={
  hold:()=>{if(!state.demo&&!state.connected){toast('Connect to your person first.');return;}$('#direction-arrow').hidden=true;instruction('Hold the camera still.');packet({type:'hold'});},
  pointer:pointerAction, clear:()=>clearGuidance(),
  'zoom-in':()=>{state.zoom=clamp(state.zoom+.25,1,3);applyZoom();},'zoom-out':()=>{state.zoom=clamp(state.zoom-.25,1,3);applyZoom();},
- mic:()=>{state.mic=!state.mic;localStream?.getAudioTracks().forEach(t=>t.enabled=state.mic);renderState();if(state.demo)toast(state.mic?'Microphone on in preview.':'Microphone muted in preview.');},camera:()=>void toggleCamera(),flip:()=>void flipCamera(),share:()=>void screenShare(),
+ mic:()=>void toggleMicrophone(),camera:()=>void toggleCamera(),flip:()=>void flipCamera(),share:()=>void screenShare(),'dismiss-device-notice':()=>$('#device-notice').hidden=true,
  fullscreen:()=>{if(document.fullscreenElement)void document.exitFullscreen();else if(stage.requestFullscreen)void stage.requestFullscreen().catch(()=>toast('Fullscreen isn’t available in this browser.'));else toast('Turn your phone sideways for a larger view.');},
  end:leaveCall,
  emoji:()=>{$('#emoji-picker').hidden=!$('#emoji-picker').hidden;},attach:()=>$<HTMLInputElement>('#file-input').click()

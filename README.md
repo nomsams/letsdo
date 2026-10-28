@@ -18,4 +18,4 @@ npm run dev
 
 Pushes to `main` deploy automatically to GitHub Pages.
 
-Camera and microphone require browser permission. Screen sharing depends on browser support. The shared pointer works inside Near; full desktop control requires a native helper. Some networks require a TURN relay, configurable in Settings.
+Camera and microphone are optional. Join with either device off and enable it later. Screen sharing depends on browser support. The shared pointer works inside Near; full desktop control requires a native helper. Some networks require a TURN relay, configurable in Settings.
