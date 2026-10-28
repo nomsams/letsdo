@@ -6,6 +6,6 @@ export async function invitationQrSvg(invite: string): Promise<string> {
   if (!/^https?:\/\//i.test(invite) || !invitationFromLink(invite, invite)) throw new Error('A complete Near invitation is required');
   return QRCode.toString(invite, {
     type: 'svg', errorCorrectionLevel: 'M', margin: 4, width: 320,
-    color: { dark: '#18392e', light: '#ffffff' },
+    color: { dark: '#172554', light: '#ffffff' },
   });
 }
