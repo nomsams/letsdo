@@ -3,7 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "dev": "vite --host 0.0.0.0", "build": "tsc && vite build", "preview": "vite preview --host 0.0.0.0", "test": "node --experimental-strip-types --test tests/*.test.ts" },
-  "dependencies": { "lucide": "^0.468.0", "peerjs": "^1.5.5" },
-  "devDependencies": { "typescript": "^5.7.2", "vite": "^6.0.5", "@types/node": "^22.10.2" }
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0",
+    "peerjs": "^1.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.25.12",
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
 }

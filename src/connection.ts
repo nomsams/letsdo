@@ -18,7 +18,7 @@ export class CallSession {
   constructor(public config: SessionConfig, private hooks: Hooks, private invitation?: {peer:string;token:string}) {
     this.token = invitation?.token || randomToken();
     this.peer = new Peer({ ...(config.signaling || {}), config: { iceServers: config.iceServers }, debug: 0 });
-    hooks.status('Connecting to signaling…');
+    hooks.status('Getting your call ready…');
     this.connectTimer = setTimeout(() => this.fail('Connection timed out. Check your network or configure a TURN relay in Settings.'), 45000);
     this.peer.on('open', id => {
       clearTimeout(this.connectTimer);
@@ -37,14 +37,14 @@ export class CallSession {
       this.bindMedia(call); call.answer(this.local);
     });
     this.peer.on('error', err => this.fail(err.type === 'peer-unavailable' ? 'This invitation has expired. Ask for a new link.' : `Could not connect (${err.type}). Try again or add a TURN relay in Settings.`));
-    this.peer.on('disconnected', () => { if (!this.closed) hooks.status('Signaling disconnected · call may continue'); });
+    this.peer.on('disconnected', () => { if (!this.closed) hooks.status('Connection interrupted · keep this page open'); });
   }
   private bindData(conn: DataConnection) {
     this.data = conn;
     const handshake = setTimeout(() => { if (!this.authenticated) {conn.close(); if(this.data===conn)this.data=undefined; if(this.invitation)this.fail('The invitation handshake timed out. Ask for a new link.');} }, 15000);
     conn.on('open', () => {
       if (this.invitation) this.raw({type:'hello',token:this.token,name:this.config.name});
-      this.hooks.status('Waiting for call approval');
+      this.hooks.status('Waiting for an answer');
     });
     conn.on('data', value => {
       if (!validPacket(value)) return;
@@ -77,7 +77,7 @@ export class CallSession {
   setStream(stream: MediaStream) { this.local=stream;this.send({type:'ready'});this.maybeCall(); }
   private maybeCall() {
     if (this.invitation || !this.otherReady || !this.local || this.calling || !this.data || !this.accepted) return;
-    this.calling = true; this.hooks.status('Connecting encrypted media…');
+    this.calling = true; this.hooks.status('Connecting your call…');
     this.connectTimer = setTimeout(() => this.fail('Media could not connect. Configure a TURN relay in Settings and try again.'), 35000);
     this.bindMedia(this.peer.call(this.data.peer,this.local));
   }
