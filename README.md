@@ -4,6 +4,7 @@
 
 Mobile-first video calling for troubleshooting together.
 
+- One-tap call setup, shareable links, and downloadable QR codes.
 - Voice, one-way guided camera, two-way video, and screen sharing.
 - Drag-to-guide arrows, hold-still and closer prompts, tilt support, and lightweight target tracking.
 - Encrypted calls, chat, emojis, files, and a permission-based shared pointer.

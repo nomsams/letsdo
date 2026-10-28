@@ -1,0 +1,116 @@
+/* Start → share → call. Keep everything else out of the way. */
+body { background: #f7f9f7; }
+.simple-home.home-screen { background: #f7f9f7; padding: 28px 28px 0; }
+.simple-home .home-header, .lobby-header { width: min(960px,100%); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+.simple-home .home-header > .icon-button { width: 44px; height: 44px; color: #596e60; }
+.simple-home .home-content { width: 420px; max-width: 100%; margin: auto; padding: 66px 0 90px; }
+.start-symbol { width: 76px; height: 76px; display: grid; place-items: center; margin: 0 auto 28px; border-radius: 23px; background: #e6efe8; color: #397761; }
+.start-symbol svg { width: 33px; height: 33px; }
+.simple-home .home-intro h1 { font-size: 32px; font-weight: 650; line-height: 1.35; letter-spacing: -1.1px; margin: 0 0 12px; }
+.simple-home .home-intro > p { color: #617166; font-size: 15px; line-height: 1.8; }
+.home-call-actions { display: grid; gap: 12px; margin: 33px 0 18px; }
+.home-call-actions > .button { width: 100%; min-height: 58px; border-radius: 12px; font-size: 17px; gap: 10px; }
+.home-call-actions svg { width: 21px; height: 21px; }
+.home-call-actions > .button:not(.primary) { background: transparent; border-color: #d8e2d8; color: #3f5a49; }
+.simple-options { margin-top: 12px; }
+.simple-options summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; color: #607567; font-size: 13px; }
+.simple-options summary::-webkit-details-marker { display: none; }
+.simple-options summary svg { width: 14px; height: 14px; }
+.simple-options[open] summary svg { transform: rotate(180deg); }
+.simple-options-content { margin-top: 8px; padding: 6px 17px 19px; border: 1px solid #dce5dc; border-radius: 12px; background: white; }
+.simple-options .field-label { color: #4a6251; font-size: 12px; }
+.simple-options .text-input { font-size: 14px; color: #3e5948; }
+.simple-home .home-reassurance { margin-top: 19px; color: #6d7d70; font-size: 12px; }
+.simple-home .home-footer { width: auto; gap: 20px; padding: 13px 0 18px; justify-content: center; border: 0; margin: 0 auto; }
+.simple-home .home-footer .text-button { font-size: 12px; color: #667b6b; }
+.simple-home .call-result { margin-top: 23px; padding: 15px; background: #edf2eb; }
+.simple-home .call-result h2 { font-size: 15px; }
+.simple-home .call-result p { font-size: 12px; }
+.simple-home .call-result > span { display: none; }
+body.is-lobby .app-shell, body.is-lobby .mobile-bar { display: none; }
+.lobby-screen { min-height: 100dvh; padding: 28px; background: #f7f9f7; display: flex; flex-direction: column; }
+.lobby-header .brand { font-size: 39px; }
+.lobby-header .brand-dot { display: inline; }
+.lobby-header > .text-button { min-height: 44px; font-size: 13px; color: #856354; }
+.lobby-content { width: 420px; max-width: 100%; margin: 65px auto auto; text-align: center; padding-bottom: 45px; }
+.lobby-symbol { width: 58px; height: 58px; border-radius: 18px; background: #e6efe8; color: #397761; display: grid; place-items: center; margin: 0 auto 23px; }
+.lobby-symbol svg { width: 27px; height: 27px; }
+.lobby-content h1 { font-family: Manrope, sans-serif; font-size: 29px; letter-spacing: -.8px; font-weight: 650; line-height: 1.4; margin: 0 0 12px; }
+.lobby-content > p { font-size: 14px; color: #647669; line-height: 1.8; margin: 0; }
+#invitation-card { margin-top: 28px; text-align: left; }
+#invitation-card .field-label { font-size: 12px; color: #667b6b; }
+#invitation-card .copy-field { background: #fff; border-color: #d8e3d9; border-radius: 10px; padding: 5px 6px; }
+#invitation-card .copy-field input { font-size: 13px; color: #476450; }
+#invitation-card .copy-field .icon-button { color: #5d7f65; }
+.invite-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 15px; }
+.invite-actions .button { min-height: 49px; font-size: 14px; border-radius: 10px; }
+.invite-actions svg { width: 17px; height: 17px; }
+.qr-toggle { display: flex; margin: 14px auto 0; justify-content: center; min-height: 45px; font-size: 13px; color: #4e725b; }
+.qr-toggle svg { width: 18px; height: 18px; }
+.qr-panel { text-align: center; margin-top: 14px; border: 1px solid #dce5db; border-radius: 14px; padding: 19px; background: #fff; }
+.qr-image { width: min(280px,100%); aspect-ratio: 1; margin: auto; display: grid; place-items: center; background: #fff; color: #556e5c; font-size: 13px; line-height: 1.8; }
+.qr-image > svg { display: block; width: 100%; height: auto; max-width: 100%; }
+.qr-panel p { font-size: 12px; color: #607767; line-height: 1.8; margin: 12px 0 3px; }
+.qr-panel .text-button { min-height: 44px; font-size: 12px; color: #49745a; }
+#invitation-card .share-success { padding: 13px 15px; color: #3f694b; background: #e6f0e5; font-size: 13px; line-height: 1.8; border-radius: 9px; text-align: center; margin: 15px 0 0; }
+.lobby-waiting { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 27px; color: #687f6c; font-size: 12px; }
+.lobby-content > .lobby-note { font-size: 12px; color: #819085; margin-top: 11px; }
+.empty-camera { position: absolute; inset: 0; background: #182b24; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #b7c9bb; gap: 17px; }
+.empty-camera > span { width: 65px; height: 65px; border: 1px solid #6b8a7345; border-radius: 20px; display: grid; place-items: center; color: #a3c5ad; }
+.empty-camera svg { width: 29px; height: 29px; }
+.empty-camera h2 { font-size: 16px; font-weight: 400; margin: 0; }
+main { max-width: 1080px; padding: 22px 24px 30px; }
+.call-layout { grid-template-columns: 1fr; }
+.call-heading, .session-bar, .below-call, .privacy-strip, main > footer, .mobile-bar, .call-controls .connection-state, .call-safety-status, .stage-encryption, .demo-guide { display: none !important; }
+.page-header { margin-bottom: 17px; }
+.page-header .header-invite { display: none; }
+.page-header p { font-size: 12px; }
+.page-header h1 { font-size: 21px; }
+.next-step { border: 0; background: #edf2ed; border-radius: 10px; margin-bottom: 17px; padding: 13px 16px; }
+.next-step .next-step-icon { display: none; }
+.next-step strong { font-size: 14px; color: #47624a; }
+.next-step p { font-size: 12px; color: #62785f; }
+.next-step .button { font-size: 12px; }
+.video-stage { aspect-ratio: 16/10; max-height: 66dvh; min-height: 300px; }
+.call-controls { justify-content: center; padding: 16px 12px; }
+.control-buttons { margin: 0; gap: 13px; justify-content: center; }
+.round-control.labeled-control { width: 72px; height: 60px; }
+.guide-toolbar { justify-content: center; }
+.guide-toolbar .tools { flex: 0 1 auto; }
+.chat-panel.chat-open { display: flex; position: fixed; top: 24px; right: 24px; bottom: 24px; width: 360px; height: auto; max-height: none; min-height: 0; z-index: 80; box-shadow: 0 0 0 100vmax #1a2e2566,0 10px 60px #16352133; }
+.chat-panel .chat-close { display: flex; min-width: 44px; min-height: 44px; }
+.chat-heading { border-bottom: 1px solid #e8eee5; }
+.chat-panel .chat-session-note, .chat-panel .chat-footnote { display: none; }
+#toast { bottom: 24px; }
+@media(max-width:600px) {
+ .simple-home.home-screen, .lobby-screen { padding: 21px 22px 0; }
+ .simple-home .home-header .brand, .lobby-header .brand { font-size: 35px; }
+ .simple-home .home-content { padding: 42px 0 65px; }
+ .simple-home .home-intro h1 { font-size: 29px; letter-spacing: -.9px; }
+ .simple-home .home-intro > p { font-size: 14px; max-width: 270px; margin: auto; }
+ .start-symbol { width: 68px; height: 68px; border-radius: 21px; margin-bottom: 24px; }
+ .start-symbol svg { width: 29px; height: 29px; }
+ .home-call-actions { margin-top: 28px; }
+ .home-call-actions > .button { min-height: 57px; font-size: 16px; }
+ .simple-options .text-input { font-size: 16px; }
+ .lobby-content { margin-top: 43px; }
+ .lobby-content h1 { font-size: 27px; }
+ .lobby-content > p { font-size: 13px; }
+ .lobby-content > .lobby-note { font-size: 12px; }
+ .invite-actions .button { min-height: 50px; font-size: 14px; }
+ #invitation-card .copy-field input { font-size: 12px; }
+ main { padding: 15px 10px 15px; }
+ .page-header { margin-bottom: 14px; }
+ .page-header h1 { font-size: 19px; }
+ .page-header .back-home { min-width: 40px; }
+ .video-stage { aspect-ratio: .9; min-height: 300px; max-height: 63dvh; }
+ .next-step { margin-bottom: 13px; padding: 12px 14px; }
+ .next-step strong { font-size: 13px; }
+ .next-step p { font-size: 11px; }
+ .control-buttons { gap: 7px; width: 100%; }
+ .round-control.labeled-control { min-width: 43px; width: 58px; height: 58px; }
+ .call-controls { padding: 13px 8px; }
+ .guide-toolbar .tools { flex: 1; }
+ .chat-panel.chat-open { inset: 8px 8px 12px; width: auto; }
+ #toast { bottom: 18px; font-size: 13px; }
+}

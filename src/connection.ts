@@ -1,5 +1,5 @@
 import Peer, { type DataConnection, type MediaConnection } from 'peerjs';
-import { type Role, type Mode, type Packet, validPacket, randomToken } from './protocol';
+import { type Role, type Mode, type Packet, validPacket, randomToken, createInvitationUrl } from './protocol';
 export type SessionConfig = { name: string; role: Role; mode: Mode; iceServers: RTCIceServer[]; signaling?: {host:string;port:number;path:string;secure:boolean} };
 type Hooks = { status: (s: string) => void; invite: (url: string) => void; request: (name: string) => void; joined: (name: string, role: Role, mode: Mode) => void; packet: (p: Packet) => void; stream: (s: MediaStream) => void; ended: (reason: string) => void };
 export class CallSession {
@@ -24,8 +24,8 @@ export class CallSession {
       clearTimeout(this.connectTimer);
       if (invitation) this.bindData(this.peer.connect(invitation.peer, { reliable: true, serialization: 'binary' }));
       else {
-        const url = new URL(location.href); url.hash = new URLSearchParams({call:id,key:this.token}).toString();
-        hooks.invite(url.href); hooks.status('Waiting for your person');
+        const published = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
+        hooks.invite(createInvitationUrl(id, this.token, location.href, published)); hooks.status('Waiting for your person');
       }
     });
     this.peer.on('connection', conn => {

@@ -21,6 +21,15 @@ export function inviteFromHash(hash: string): { peer: string; token: string } | 
 export function randomToken() {
   return Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
 }
+export function createInvitationUrl(peer: string, token: string, currentUrl: string, publishedUrl?: string) {
+  let url = new URL(currentUrl);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) && publishedUrl) {
+    const published = new URL(publishedUrl);
+    if (published.protocol === 'https:') url = published;
+  }
+  url.hash = new URLSearchParams({ call: peer, key: token }).toString();
+  return url.href;
+}
 export function safeFilename(value: string) { return value.replace(/[\x00-\x1f<>:"/\\|?*]/g, '_').slice(0, 150) || 'attachment'; }
 export type Packet = { type: string; [key: string]: unknown };
 export function validPacket(value: unknown): value is Packet {

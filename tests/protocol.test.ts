@@ -1,10 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inviteFromHash, validPacket, fitRect, normalizedPoint, FileAssembly, MAX_FILE, safeFilename } from '../src/protocol.ts';
+import { inviteFromHash, validPacket, fitRect, normalizedPoint, FileAssembly, MAX_FILE, safeFilename, createInvitationUrl } from '../src/protocol.ts';
 test('invitation requires a complete unguessable key and a safe peer ID',()=>{
  const key='a'.repeat(64);
  assert.deepEqual(inviteFromHash(`#call=peer-123&key=${key}`),{peer:'peer-123',token:key});
  for(const hash of ['#call=p&key=abc',`#call=<script>&key=${key}`,`#key=${key}`,''])assert.equal(inviteFromHash(hash),null);
+});
+test('local previews generate phone-usable hosted invitations while deployed sites keep their own address',()=>{
+ const key='a'.repeat(64),published='https://nomsams.github.io/letsdo/';
+ const local=new URL(createInvitationUrl('peer-1',key,'http://localhost:5173/',published));
+ assert.equal(local.origin,'https://nomsams.github.io');assert.equal(local.pathname,'/letsdo/');assert.deepEqual(inviteFromHash(local.hash),{peer:'peer-1',token:key});assert.equal(local.search,'');
+ const custom=new URL(createInvitationUrl('peer-1',key,'https://custom.example/app/',published));assert.equal(custom.origin,'https://custom.example');assert.equal(custom.pathname,'/app/');
 });
 test('only bounded valid messages enter the call protocol',()=>{
  assert.equal(validPacket({type:'arrow',x:.5,y:.5,dx:-.3,dy:.2}),true);
