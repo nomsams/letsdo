@@ -15,9 +15,14 @@ const bundle = await build({entryPoints:['src/main.ts'],bundle:true,write:false,
 }]});
 const source=bundle.outputFiles[0].text;
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
-function app(nativeShare=false){
+function app(nativeShare=false,appearance:{theme?:string;systemDark?:boolean;storageBlocked?:boolean}={}){
  const win=new Window({url:'http://localhost:5173/',width:390,height:844,settings:{enableJavaScriptEvaluation:true,disableCSSFileLoading:true,disableJavaScriptFileLoading:true}});
+ win.document.head.innerHTML='<meta name="theme-color" content="#f6f8fc">';
  win.document.body.innerHTML='<div id="app"></div>';
+ if(appearance.theme)win.localStorage.setItem('near-theme',appearance.theme);
+ if(appearance.storageBlocked)Object.defineProperty(win,'localStorage',{get(){throw new Error('Storage blocked');}});
+ const media={matches:!!appearance.systemDark},themeListeners:Array<()=>void>=[];
+ Object.defineProperty(win,'matchMedia',{value:()=>({...media,get matches(){return media.matches;},addEventListener:(_type:string,listener:()=>void)=>themeListeners.push(listener)})});
  let requests=0,video:unknown,copied='',shared='';
  Object.defineProperty(win.navigator,'mediaDevices',{value:{getUserMedia:async(c:{video:unknown})=>{requests++;video=c.video;throw new win.DOMException('Blocked for test','NotAllowedError');}}});
  Object.defineProperty(win.navigator,'clipboard',{value:{writeText:async(value:string)=>{copied=value;}}});
@@ -27,8 +32,26 @@ function app(nativeShare=false){
  win.eval(source);
  const find=(selector:string)=>{const el=win.document.querySelector(selector);assert.ok(el,`Missing ${selector}`);return el as unknown as HTMLElement;};
  const click=(selector:string)=>find(selector).click();
- return{win,find,click,requests:()=>requests,video:()=>video,copied:()=>copied,shared:()=>shared,session:()=>Reflect.get(win,'__session'),close:()=>win.happyDOM.abort()};
+ return{win,find,click,requests:()=>requests,video:()=>video,copied:()=>copied,shared:()=>shared,session:()=>Reflect.get(win,'__session'),system:(dark:boolean)=>{media.matches=dark;themeListeners.forEach(listener=>listener());},close:()=>win.happyDOM.abort()};
 }
+
+test('dark mode follows the device until changed, then remembers the choice across screens and reloads',async()=>{
+ const a=app(false,{systemDark:true});try{
+  assert.equal(a.win.document.documentElement.dataset.theme,'dark');assert.equal(a.find('.theme-toggle').getAttribute('aria-pressed'),'true');
+  a.system(false);assert.equal(a.win.document.documentElement.dataset.theme,'light');
+  a.click('#home-screen .theme-toggle');assert.equal(a.win.localStorage.getItem('near-theme'),'dark');a.system(false);assert.equal(a.win.document.documentElement.dataset.theme,'dark');
+  a.click('[data-action="quick-start"]');await tick();const session=a.session();a.click('#lobby-screen .theme-toggle');
+  assert.equal(a.win.document.documentElement.dataset.theme,'light');assert.equal(a.win.localStorage.getItem('near-theme'),'light');assert.equal(a.session(),session);assert.equal(a.requests(),0);
+  const b=app(false,{systemDark:true,theme:a.win.localStorage.getItem('near-theme')!});try{assert.equal(b.win.document.documentElement.dataset.theme,'light');}finally{await b.close();}
+ }finally{await a.close();}
+});
+
+test('the theme toggle still works when browser storage is blocked',async()=>{
+ const a=app(false,{storageBlocked:true});try{
+  assert.equal(a.win.document.documentElement.dataset.theme,'light');a.click('#home-screen .theme-toggle');
+  assert.equal(a.win.document.documentElement.dataset.theme,'dark');assert.equal(a.win.document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),'#0b1120');
+ }finally{await a.close();}
+});
 
 test('the front door contains no sample photo and one click creates a shareable call without hardware access',async()=>{
  const a=app();try{
