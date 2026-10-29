@@ -30,8 +30,8 @@ Item tracking works best on a clear, textured detail with slow camera movement. 
 
 1. On the laptop, choose **Guide someone**, then **Start call**.
 2. Scan the QR code with the phone and join. Answer on the laptop, then choose devices on both screens.
-3. Drag on the laptop video to point; release to ask the camera user to hold still. Try **Come closer** and **Select item**.
-4. Use **Freeze & mark**, circle a detail, then **Back to live**. Screen sharing is available directly in the desktop controls.
+3. Drag on the laptop video to point; release to ask the camera user to hold still. **Come closer** stays beside the picture. Tracking and other occasional actions are under **More tools**.
+4. Use **Pause & mark**, circle a detail, then **Back to live**. Screen sharing is available directly in the desktop controls.
 
 Desktop shortcuts: **M** microphone, **V** camera, **P** freeze/resume, **F** fullscreen. Shortcuts stay inactive while typing or using a dialog.
 

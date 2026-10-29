@@ -138,8 +138,8 @@ test('invalid pasted invitations do not connect and a valid invitation needs onl
   a.click('[data-action="join-link"]');(a.find('#join-url') as HTMLInputElement).value='https://other.example/#call=x&key='+'a'.repeat(64);a.click('#join-link-form button');
   assert.equal(a.find('#join-error').hidden,false);assert.equal(a.session(),undefined);
   (a.find('#join-url') as HTMLInputElement).value='http://localhost:5173/#call=x&key='+'a'.repeat(64);a.click('#join-link-form button');
-  assert.match(a.find('dialog h2').textContent!,/Join this call/i);assert.equal(a.win.document.querySelector('#your-name'),null);
-  a.click('#join-call');await tick();assert.equal(a.win.document.body.classList.contains('is-lobby'),true);assert.equal(a.requests(),0);
+  await tick();assert.equal(a.win.document.querySelector('#your-name'),null);assert.equal(a.find('#dialog').hasAttribute('open'),false);
+  assert.equal(a.win.document.body.classList.contains('is-lobby'),true);assert.equal(a.requests(),0);assert.ok(a.session());
  }finally{await a.close();}
 });
 
@@ -216,4 +216,17 @@ test('conversation stays inside the visible viewport when a mobile keyboard open
 
 test('routine pointer resets stay silent while explicit requests receive a clear answer',async()=>{
  const a=app();try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#permission-cancel');await tick();a.session().hooks.stream(a.stream());a.session().hooks.packet({type:'pointer-permission',enabled:false});assert.doesNotMatch(a.find('#toast').textContent!,/declined|stopped|isn.t enabled/i);a.session().hooks.packet({type:'screen',enabled:true});a.click('[data-action="pointer"]');a.session().hooks.packet({type:'pointer-permission',enabled:false});assert.match(a.find('#toast').textContent!,/request declined/i);assert.equal(a.session().closed,undefined);}finally{await a.close();}
+});
+
+test('sharing offers only supported actions and exposes the full link when clipboard access fails',async()=>{
+ const a=app();try{a.click('[data-action="quick-start"]');await tick();assert.equal(a.find('[data-action="share-invite"]').hidden,true);assert.equal(a.find('[data-action="copy-invite"]').classList.contains('primary'),true);assert.equal((a.find('#invite-link-details') as HTMLDetailsElement).open,false);Object.assign(Reflect.get(a.win.navigator,'clipboard'),{writeText:async()=>{throw Error('Blocked');}});a.click('[data-action="copy-invite"]');await tick();assert.equal((a.find('#invite-link-details') as HTMLDetailsElement).open,true);assert.equal(a.win.document.activeElement?.id,'invite-link');assert.match(a.find('#share-success').textContent!,/selected link/i);}finally{await a.close();}
+ const b=app(true);try{b.click('[data-action="quick-start"]');await tick();assert.equal(b.find('[data-action="share-invite"]').hidden,false);}finally{await b.close();}
+});
+
+test('extra guidance is folded until needed and selecting tracking returns focus to the camera',async()=>{
+ const a=app();try{a.click('[data-home-role="guide"]');a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#permission-cancel');await tick();a.session().hooks.stream(a.stream());const menu=a.find('#extra-guidance') as HTMLDetailsElement;assert.equal(menu.hidden,false);assert.equal(menu.open,false);menu.open=true;a.click('#select-item-button');assert.equal(menu.open,false);assert.equal(a.find('#select-item-button').getAttribute('aria-pressed'),'true');assert.equal(a.win.document.activeElement?.id,'stage');a.click('[data-tool="direction"]');assert.equal(menu.classList.contains('has-selection'),false);}finally{await a.close();}
+});
+
+test('call options omit unavailable devices and voice calls hide camera tools',async()=>{
+ const a=app();try{Object.defineProperty(a.win.document,'fullscreenEnabled',{configurable:true,value:false});(a.find('#home-mode') as HTMLSelectElement).value='voice';a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#permission-cancel');await tick();a.session().hooks.stream(a.stream());assert.equal(a.find('.assistance-panel').hidden,true);a.click('[data-action="more"]');assert.equal(a.find('dialog h2').textContent,'Call options');for(const id of ['more-share','more-flip','more-torch','more-audio','more-fullscreen'])assert.equal(a.win.document.getElementById(id),null);assert.ok(a.find('#more-settings'));}finally{await a.close();}
 });
