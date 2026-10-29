@@ -11,7 +11,7 @@ export async function captureDevices(target: MediaStream, request: CaptureReques
       const stream = await devices.getUserMedia(kind === 'audio' ? { audio: { echoCancellation: true, noiseSuppression: true }, video: false } : { audio: false, video: request.video });
       if (!active()) { stream.getTracks().forEach(track => track.stop()); continue; }
       stream.getTracks().forEach(track => target.addTrack(track));
-    } catch (error) { failures.push({ kind, name: (error as Error).name }); }
+    } catch (error) { failures.push({ kind, name: error instanceof Error || error && typeof error === 'object' && 'name' in error ? String(error.name) : 'NotReadableError' }); }
   }
   return failures;
 }

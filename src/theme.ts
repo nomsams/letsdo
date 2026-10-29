@@ -17,7 +17,8 @@ export function initializeTheme(onChange: () => void) {
   }
   const onSystemChange = () => { if (preference === null) apply(); };
   const onStorage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) { preference = readPreference(); apply(); } };
-  system.addEventListener('change', onSystemChange);
+  if (system.addEventListener) system.addEventListener('change', onSystemChange);
+  else system.addListener(onSystemChange);
   window.addEventListener('storage', onStorage);
   apply();
   return {

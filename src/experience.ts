@@ -2,7 +2,7 @@ import { inviteFromHash, type Mode, type Role } from './protocol.ts';
 
 export function mediaNeeds(mode: Mode, role: Role) {
   const camera = mode === 'video' || mode === 'guided' && role === 'camera';
-  return { camera, title: camera ? 'Turn on your camera and microphone' : 'Turn on your microphone', description: camera ? 'The other person will see your camera and hear you. Your browser will ask you to allow both.' : 'The other person will hear you. Your camera stays off. Your browser will ask you to allow the microphone.' };
+  return { camera, title: camera ? 'Choose your camera and microphone' : 'Choose your microphone', description: camera ? 'Choose what to share, check your devices, or join with both off.' : 'Choose whether to use your microphone, or join with it off. Your camera stays off.' };
 }
 
 export function invitationFromLink(value: string, appUrl: string) {

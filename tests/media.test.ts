@@ -18,3 +18,8 @@ test('capture results arriving after hangup are stopped and never attached',asyn
  await captureDevices(target as unknown as MediaStream,{audio:true,video:false},()=>active,devices as unknown as MediaDevices);
  assert.equal(stopped,true);assert.equal(target.tracks.length,0);
 });
+
+test('nonstandard device failures are reported without throwing or preventing a receive-only join',async()=>{
+ const errors=await captureDevices(new Stream() as unknown as MediaStream,{audio:true,video:{}},()=>true,{getUserMedia:async()=>{throw null;}} as unknown as MediaDevices);
+ assert.deepEqual(errors,[{kind:'audio',name:'NotReadableError'},{kind:'video',name:'NotReadableError'}]);
+});

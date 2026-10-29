@@ -46,11 +46,15 @@ export function validPacket(value: unknown): value is Packet {
     case 'welcome': return typeof p.name === 'string' && p.name.length <= 60 && ['guide','camera'].includes(String(p.role)) && ['guided','video','voice'].includes(String(p.mode));
     case 'chat': return typeof p.text === 'string' && p.text.length > 0 && p.text.length <= 4000;
     case 'arrow': return point() && typeof p.dx === 'number' && Math.abs(p.dx) <= 1 && typeof p.dy === 'number' && Math.abs(p.dy) <= 1;
-    case 'target': case 'pointer': return point();
-    case 'file-offer': return typeof p.id === 'string' && p.id.length <= 64 && typeof p.name === 'string' && p.name.length <= 150 && typeof p.size === 'number' && Number.isInteger(p.size) && p.size > 0 && p.size <= MAX_FILE;
-    case 'file-accept': case 'file-reject': case 'file-end': return typeof p.id === 'string' && p.id.length <= 64;
-    case 'file-chunk': return typeof p.id === 'string' && p.id.length <= 64 && p.data instanceof ArrayBuffer && p.data.byteLength <= CHUNK_SIZE;
-    case 'screen': case 'pointer-permission': case 'camera-state': return typeof p.enabled === 'boolean';
+    case 'target': return point() && (p.width == null || typeof p.width === 'number' && p.width > 0 && p.width <= 1) && (p.height == null || typeof p.height === 'number' && p.height > 0 && p.height <= 1);
+    case 'pointer': return point();
+    case 'snapshot-start': return typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 64 && Number.isInteger(p.size) && Number(p.size) > 0 && Number(p.size) <= 512 * 1024;
+    case 'snapshot-chunk': case 'file-chunk': return typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 64 && p.data instanceof ArrayBuffer && p.data.byteLength > 0 && p.data.byteLength <= CHUNK_SIZE;
+    case 'snapshot-end': case 'file-accept': case 'file-reject': case 'file-end': return typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 64;
+    case 'snapshot-mark': return point() && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 64;
+    case 'snapshot-clear': case 'snapshot-resume': return true;
+    case 'file-offer': return typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 64 && typeof p.name === 'string' && p.name.length <= 150 && typeof p.size === 'number' && Number.isInteger(p.size) && p.size > 0 && p.size <= MAX_FILE;
+    case 'screen': case 'pointer-permission': case 'camera-state': case 'video-pause': return typeof p.enabled === 'boolean';
     case 'accepted': case 'ready': case 'reject': case 'end': case 'hold': case 'closer': case 'further': case 'clear': case 'pointer-request': case 'ping': case 'pong': return true;
     default: return false;
   }
