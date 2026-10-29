@@ -25,3 +25,14 @@ Pushes to `main` deploy automatically to GitHub Pages.
 Camera and microphone are optional. Join with either device off and enable it later. Screen sharing depends on browser support. The shared pointer works inside Near; full desktop control requires a native helper. Some networks require a TURN relay, configurable in Settings.
 
 Item tracking works best on a clear, textured detail with slow camera movement. It asks you to select again when the item is lost. Reconnect retries are bounded; closing or reloading a tab ends the session. Torch support depends on the browser and camera.
+
+## Live demonstration
+
+1. On the laptop, choose **Guide someone**, then **Start call**.
+2. Scan the QR code with the phone and join. Answer on the laptop, then choose devices on both screens.
+3. Drag on the laptop video to point; release to ask the camera user to hold still. Try **Come closer** and **Select item**.
+4. Use **Freeze & mark**, circle a detail, then **Back to live**. Screen sharing is available directly in the desktop controls.
+
+Desktop shortcuts: **M** microphone, **V** camera, **P** freeze/resume, **F** fullscreen. Shortcuts stay inactive while typing or using a dialog.
+
+Rehearse on the presentation devices and network. A restrictive venue network may require a TURN relay configured before the call.

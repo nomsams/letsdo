@@ -19,10 +19,11 @@ const bundle = await build({entryPoints:['src/main.ts'],bundle:true,write:false,
 }]});
 const source=bundle.outputFiles[0].text;
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
-function app(nativeShare=false,appearance:{theme?:string;systemDark?:boolean;storageBlocked?:boolean;devices?:'denied'|'allow'|'mic-denied'|'camera-denied'}={}){
+function app(nativeShare=false,appearance:{theme?:string;systemDark?:boolean;storageBlocked?:boolean;visualHeight?:number;devices?:'denied'|'allow'|'mic-denied'|'camera-denied'}={}){
  const win=new Window({url:'http://localhost:5173/',width:390,height:844,settings:{enableJavaScriptEvaluation:true,disableCSSFileLoading:true,disableJavaScriptFileLoading:true}});
  win.document.head.innerHTML='<meta name="theme-color" content="#f6f8fc">';
  win.document.body.innerHTML='<div id="app"></div>';
+ if(appearance.visualHeight)Object.defineProperty(win,'visualViewport',{configurable:true,value:Object.assign(new win.EventTarget(),{height:appearance.visualHeight,offsetTop:0})});
  if(appearance.theme)win.localStorage.setItem('near-theme',appearance.theme);
  if(appearance.storageBlocked)Object.defineProperty(win,'localStorage',{get(){throw new Error('Storage blocked');}});
  const media={matches:!!appearance.systemDark},themeListeners:Array<()=>void>=[];
@@ -42,7 +43,7 @@ function app(nativeShare=false,appearance:{theme?:string;systemDark?:boolean;sto
  win.eval(source);
  const find=(selector:string)=>{const el=win.document.querySelector(selector);assert.ok(el,`Missing ${selector}`);return el as unknown as HTMLElement;};
  const click=(selector:string)=>find(selector).click();
- return{win,find,click,requests:()=>requests,video:()=>video,copied:()=>copied,shared:()=>shared,session:()=>Reflect.get(win,'__session'),stream:(tracks:any[]=[])=>new Stream(tracks),captured,holdCapture:(capture:typeof captureGate)=>{captureGate=capture;},devices:(value:typeof policy)=>{policy=value;},system:(dark:boolean)=>{media.matches=dark;themeListeners.forEach(listener=>listener());},close:()=>win.happyDOM.abort()};
+ return{win,find,click,requests:()=>requests,video:()=>video,copied:()=>copied,shared:()=>shared,session:()=>Reflect.get(win,'__session'),stream:(tracks:any[]=[])=>new Stream(tracks),captured,holdCapture:(capture:typeof captureGate)=>{captureGate=capture;},devices:(value:typeof policy)=>{policy=value;},system:(dark:boolean)=>{media.matches=dark;themeListeners.forEach(listener=>listener());},close:async()=>{win.dispatchEvent(new win.Event('pagehide'));await win.happyDOM.close();}};
 }
 
 test('dark mode follows the device until changed, then remembers the choice across screens and reloads',async()=>{
@@ -186,4 +187,33 @@ test('malformed saved network settings do not crash Settings or call setup',asyn
 
 test('leaving a page stops capture and returns a cached page to a disconnected state',async()=>{
  const a=app(false,{devices:'allow'});try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#allow-media');await tick();await tick();a.session().hooks.stream(a.stream());a.win.dispatchEvent(new a.win.Event('pagehide'));assert.equal(a.session().closed,true);assert.ok(a.captured.every(t=>t.readyState==='ended'));assert.equal(a.win.document.body.classList.contains('is-home'),true);}finally{await a.close();}
+});
+
+test('the visible guide choice creates a helper call and voice mode hides irrelevant role choices',async()=>{
+ const a=app();try{a.click('[data-home-role="guide"]');assert.equal(a.find('[data-home-role="guide"]').getAttribute('aria-pressed'),'true');a.click('[data-action="quick-start"]');await tick();assert.equal(a.session().config.role,'guide');a.session().hooks.request('Alex');a.click('#accept-call');assert.equal(a.win.document.querySelector('#want-camera'),null);}finally{await a.close();}
+ const b=app();try{(b.find('#home-mode') as HTMLSelectElement).value='voice';b.find('#home-mode').dispatchEvent(new b.win.Event('change',{bubbles:true}) as unknown as Event);assert.equal(b.find('.home-role-choice').hidden,true);}finally{await b.close();}
+});
+
+test('desktop invitations show a decodable QR automatically without requesting devices',async()=>{
+ const a=app();try{Object.defineProperty(a.win,'innerWidth',{configurable:true,value:1024});a.click('[data-action="quick-start"]');await tick();await tick();await tick();assert.equal(a.find('#qr-panel').hidden,false);assert.equal(a.find('#qr-toggle').getAttribute('aria-expanded'),'true');assert.ok(a.find('#qr-image svg'));assert.equal(a.requests(),0);}finally{await a.close();}
+});
+
+test('screen sharing keeps its stop control enabled and restores the camera without ending audio',async()=>{
+ const a=app(false,{devices:'allow'});try{const screen={kind:'video',readyState:'live',stop(){this.readyState='ended';}};Object.defineProperty((a.win.navigator as unknown as Navigator).mediaDevices,'getDisplayMedia',{value:async()=>a.stream([screen])});a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#allow-media');await tick();await tick();a.session().hooks.stream(a.stream());a.click('#share-btn');await tick();await tick();assert.equal(a.find('#share-btn').getAttribute('aria-pressed'),'true');assert.equal((a.find('#share-btn') as HTMLButtonElement).disabled,false);assert.equal(a.find('#tools-title').textContent,'Work on this screen');a.click('#share-btn');await tick();await tick();assert.equal(a.find('#share-btn').getAttribute('aria-pressed'),'false');assert.equal(screen.readyState,'ended');assert.equal(a.session().local.getAudioTracks()[0].readyState,'live');assert.equal(a.session().closed,undefined);}finally{await a.close();}
+});
+
+test('microphone shortcuts work during a call but never intercept typing or dialogs',async()=>{
+ const a=app(false,{devices:'allow'});try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#allow-media');await tick();await tick();a.session().hooks.stream(a.stream());const mic=a.session().local.getAudioTracks()[0];a.win.document.body.dispatchEvent(new a.win.KeyboardEvent('keydown',{key:'m',bubbles:true}));assert.equal(mic.enabled,false);a.find('#chat-input').dispatchEvent(new a.win.KeyboardEvent('keydown',{key:'m',bubbles:true}) as unknown as Event);assert.equal(mic.enabled,false);a.click('[data-action="more"]');a.win.document.body.dispatchEvent(new a.win.KeyboardEvent('keydown',{key:'m',bubbles:true}));assert.equal(mic.enabled,false);a.click('[data-close]');a.win.document.body.dispatchEvent(new a.win.KeyboardEvent('keydown',{key:'m',bubbles:true}));assert.equal(mic.enabled,true);}finally{await a.close();}
+});
+
+test('the call brand opens call details without navigating away or stopping capture',async()=>{
+ const a=app(false,{devices:'allow'});try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#allow-media');await tick();await tick();a.session().hooks.stream(a.stream());const active=a.session();a.click('.call-brand');assert.equal(a.find('dialog h2').textContent,'You’re connected.');assert.equal(a.session(),active);assert.equal(active.closed,undefined);assert.ok(a.captured.every(t=>t.readyState==='live'));}finally{await a.close();}
+});
+
+test('conversation stays inside the visible viewport when a mobile keyboard opens',async()=>{
+ const a=app(false,{visualHeight:420});try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('[data-close]');a.click('.chat-control');assert.equal(a.find('#chat-panel').style.height,'404px');const viewport=Reflect.get(a.win,'visualViewport');viewport.height=260;viewport.dispatchEvent(new a.win.Event('resize'));assert.equal(a.find('#chat-panel').style.height,'244px');a.click('.chat-close');assert.equal(a.find('#chat-panel').style.height,'');assert.equal(a.find('#chat-panel').hidden,true);}finally{await a.close();}
+});
+
+test('routine pointer resets stay silent while explicit requests receive a clear answer',async()=>{
+ const a=app();try{a.click('[data-action="quick-start"]');await tick();a.session().hooks.request('Alex');a.click('#accept-call');a.click('#permission-cancel');await tick();a.session().hooks.stream(a.stream());a.session().hooks.packet({type:'pointer-permission',enabled:false});assert.doesNotMatch(a.find('#toast').textContent!,/declined|stopped|isn.t enabled/i);a.session().hooks.packet({type:'screen',enabled:true});a.click('[data-action="pointer"]');a.session().hooks.packet({type:'pointer-permission',enabled:false});assert.match(a.find('#toast').textContent!,/request declined/i);assert.equal(a.session().closed,undefined);}finally{await a.close();}
 });
