@@ -41,7 +41,9 @@ export class CallSession {
       }
     });
     this.peer.on('connection', conn => {
-      if (this.closed || invitation || this.data || this.recovering && conn.peer !== this.remotePeer) { conn.on('open', () => conn.close()); return; }
+      if (this.closed || invitation || this.data && !(this.accepted && conn.peer === this.remotePeer) || this.recovering && conn.peer !== this.remotePeer) { conn.on('open', () => conn.close()); return; }
+      // A failed network path can remain open at this end. The same peer must still prove its invitation secret again.
+      if(this.data){const stale=this.data;this.dataLost(stale);stale.close();}
       this.bindData(conn);
     });
     this.peer.on('call', call => call.close());

@@ -39,3 +39,7 @@ test('a joining device retries its connection with the original invitation and n
 test('unrecoverable calls stop retrying and release devices after the recovery deadline',t=>{
  t.mock.timers.enable({apis:['setTimeout']});const {call,peer,ended}=setup();const data=new Data();peer.emit('connection',data);hello(call,data);call.accept();let stopped=false;call.local={getTracks:()=>[{stop(){stopped=true;}}]};data.close();t.mock.timers.tick(45000);assert.equal(ended.length,1);assert.equal(stopped,true);assert.equal(peer.destroyed,true);call.close();
 });
+
+test('a peer can recover a half-open path but must authenticate the replacement channel again',()=>{
+ const {call,peer,ended,requests}=setup();const old=new Data();peer.emit('connection',old);hello(call,old);call.accept();const replacement=new Data();peer.emit('connection',replacement);assert.equal(old.closed,true);assert.equal(call.connected,false);assert.deepEqual(requests,['Guest']);hello(call,replacement);assert.equal(call.connected,true);assert.deepEqual(requests,['Guest']);assert.deepEqual(ended,[]);call.close();
+});
